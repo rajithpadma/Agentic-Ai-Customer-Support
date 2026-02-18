@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipments - Customer Support</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🤖 Support</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/chat" class="nav-item">💬 Chat</a>
+                <a href="/shipments" class="nav-item active">📦 Shipments</a>
+                <a href="/" class="nav-item" onclick="logout()">🚪 Logout</a>
+            </nav>
+            <div class="sidebar-footer">
+                <p>User: <span id="currentUser">-</span></p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="shipments-container">
+                <div class="shipments-header">
+                    <h1>📦 Shipment Tracking</h1>
+                    <button class="btn-refresh" onclick="loadShipments()">🔄 Refresh</button>
+                </div>
+                
+                <!-- Tracking ID Search -->
+                <div class="tracking-search" style="margin-bottom: 20px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom: 15px;">🔍 Track Your Shipment</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="trackingInput" placeholder="Enter Tracking ID (e.g., PKP-XXXXXXXX or DLV-XXXXXXXX)" 
+                               style="flex: 1; padding: 12px; border: 2px solid #e1e5eb; border-radius: 8px; font-size: 16px;">
+                        <button onclick="trackShipment()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Track</button>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">Your Shipments</h3>
+                <div class="shipments-list" id="shipmentsList">
+                    <p class="loading">Loading shipments...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shipment Detail Modal -->
+    <div class="modal" id="shipmentModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h2>Shipment Details</h2>
+            <div id="shipmentDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        const userId = localStorage.getItem('user_id');
+        
+        if (!userId) {
+            window.location.href = '/login';
+        }
+        
+        document.getElementById('currentUser').textContent = userId;
+
+        async function loadShipments() {
+            const container = document.getElementById('shipmentsList');
+            container.innerHTML = '<p class="loading">Loading...</p>';
+
+            try {
+                const response = await fetch(`/api/shipments?user_id=${userId}`);
+                const data = await response.json();
+                
+                if (data.shipments && data.shipments.length > 0) {
+                    container.innerHTML = data.shipments.map(ship => `
+                        <div class="shipment-card" onclick="viewShipment('${ship.shipment_id}')">
+                            <div class="shipment-header">
+                                <span class="shipment-id">${ship.shipment_id}</span>
+                                <span class="shipment-type ${ship.type}">${ship.type === 'pickup' ? '📤 Pickup' : '📥 Delivery'}</span>
+                            </div>
+                            <div class="shipment-status">
+                                <span class="status-badge ${ship.status.toLowerCase().replace(/ /g, '-')}">${ship.status}</span>
+                            </div>
+                            <div class="shipment-info">
+                                <p><strong>Order:</strong> ${ship.order_id || 'N/A'}</p>
+                                <p><strong>Address:</strong> ${ship.address || 'N/A'}</p>
+                                <p><strong>Created:</strong> ${new Date(ship.created_at).toLocaleString()}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p class="no-data">No shipments found.</p>';
+                }
+            } catch (error) {
+                console.error('Load shipments error:', error);
+                container.innerHTML = '<p class="error">Failed to load shipments.</p>';
+            }
+        }
+
+        async function viewShipment(shipmentId) {
+            const modal = document.getElementById('shipmentModal');
+            const details = document.getElementById('shipmentDetails');
+            details.innerHTML = '<p class="loading">Loading...</p>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch(`/api/shipments/${shipmentId}`);
+                const ship = await response.json();
+
+                if (ship.error) {
+                    details.innerHTML = `<p class="error">${ship.error}</p>`;
+                    return;
+                }
+
+                const timeline = ship.timeline || [];
+                const timelineHtml = timeline.map((stage, index) => `
+                    <div class="timeline-item ${stage.completed ? 'completed' : ''}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <h4>${stage.stage || stage.name}</h4>
+                            <p>${stage.completed ? '✓ Completed' : 'Pending'}</p>
+                            ${stage.actual ? `<small>${new Date(stage.actual).toLocaleString()}</small>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                details.innerHTML = `
+                    <div class="detail-section">
+                        <h3>${ship.shipment_id}</h3>
+                        <p><strong>Type:</strong> ${ship.type}</p>
+                        <p><strong>Status:</strong> ${ship.status}</p>
+                        <p><strong>Address:</strong> ${ship.address}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3>Timeline</h3>
+                        <div class="timeline">
+                            ${timelineHtml}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('View shipment error:', error);
+                details.innerHTML = '<p class="error">Failed to load details.</p>';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('shipmentModal').style.display = 'none';
+        }
+        
+        async function trackShipment() {
+            const trackingId = document.getElementById('trackingInput').value.trim().toUpperCase();
+            if (!trackingId) {
+                alert('Please enter a tracking ID');
+                return;
+            }
+            viewShipment(trackingId);
+        }
+        
+        // Allow Enter key to track
+        document.getElementById('trackingInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') trackShipment();
+        });
+
+        function logout() {
+            localStorage.clear();
+            fetch('/api/auth/logout', { method: 'POST' });
+        }
+
+        // Load on page ready
+        loadShipments();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadShipments, 30000);
+    </script>
+</body>
+</html>

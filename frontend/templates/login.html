@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Customer Support</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .order-selection { display: none; margin-top: 20px; }
+        .order-select { width: 100%; padding: 12px; border: 2px solid #e1e5eb; border-radius: 8px; font-size: 16px; margin-bottom: 15px; background: white; }
+        .order-select:focus { outline: none; border-color: #667eea; }
+        .order-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; }
+        .order-info p { margin: 5px 0; font-size: 14px; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .btn-back { background: #6c757d !important; margin-top: 10px; }
+        .no-orders { color: #dc3545; padding: 20px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h1>🤖 Customer Support</h1>
+            <p>Login to access support services</p>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="userId">User ID</label>
+                    <input type="text" id="userId" placeholder="Enter your User ID" required>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+            </form>
+            
+            <p class="hint">Enter your User ID from your order confirmation</p>
+            
+            <div class="loading" id="loading"><p>Loading your orders...</p></div>
+            
+            <div class="no-orders" id="noOrders">
+                <p>No orders found for this User ID.</p>
+                <button type="button" class="btn-primary btn-back" onclick="resetForm()">Try Again</button>
+            </div>
+            
+            <div class="order-selection" id="orderSelection">
+                <h3>Select Your Order</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Choose the order you need help with:</p>
+                <select class="order-select" id="orderSelect"><option value="">-- Select an order --</option></select>
+                <div class="order-info" id="orderInfo" style="display: none;">
+                    <p><strong>Order ID:</strong> <span id="infoOrderId"></span></p>
+                    <p><strong>Product:</strong> <span id="infoProduct"></span></p>
+                    <p><strong>Product ID:</strong> <span id="infoProductId"></span></p>
+                    <p><strong>Status:</strong> <span id="infoStatus"></span></p>
+                </div>
+                <button type="button" class="btn-primary" id="proceedBtn" disabled>Proceed to Chat</button>
+                <button type="button" class="btn-primary btn-back" onclick="resetForm()">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userOrders = [];
+        let selectedOrder = null;
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById('userId').value.trim();
+            if (!userId) { alert('Please enter your User ID'); return; }
+            
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.querySelector('.hint').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+                
+                if (data.success && data.orders && data.orders.length > 0) {
+                    localStorage.setItem('user_id', userId);
+                    localStorage.setItem('session_id', data.session_id);
+                    if (data.user_info) localStorage.setItem('user_name', data.user_info.name || 'Customer');
+                    
+                    userOrders = data.orders;
+                    
+                    if (userOrders.length === 1) {
+                        // Single order - auto-select and proceed
+                        selectedOrder = userOrders[0];
+                        localStorage.setItem('selected_order_id', selectedOrder.order_id);
+                        localStorage.setItem('selected_product', selectedOrder.product_name);
+                        localStorage.setItem('selected_product_id', selectedOrder.product_id);
+                        window.location.href = '/chat';
+                    } else {
+                        // Multiple orders - show selection dropdown
+                        showOrderSelection(userOrders);
+                    }
+                } else {
+                    // No orders found or error
+                    document.getElementById('noOrders').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Connection error.');
+                document.getElementById('loading').style.display = 'none';
+                resetForm();
+            }
+        });
+        
+        function showOrderSelection(orders) {
+            const select = document.getElementById('orderSelect');
+            select.innerHTML = '<option value="">-- Select an order --</option>';
+            orders.forEach((order, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${order.product_name} (Order: ${order.order_id})`;
+                select.appendChild(opt);
+            });
+            document.getElementById('orderSelection').style.display = 'block';
+        }
+        
+        document.getElementById('orderSelect').addEventListener('change', (e) => {
+            const idx = e.target.value;
+            if (idx === '') {
+                document.getElementById('orderInfo').style.display = 'none';
+                document.getElementById('proceedBtn').disabled = true;
+                selectedOrder = null; return;
+            }
+            selectedOrder = userOrders[parseInt(idx)];
+            document.getElementById('infoOrderId').textContent = selectedOrder.order_id;
+            document.getElementById('infoProduct').textContent = selectedOrder.product_name;
+            document.getElementById('infoProductId').textContent = selectedOrder.product_id;
+            document.getElementById('infoStatus').textContent = selectedOrder.status;
+            document.getElementById('orderInfo').style.display = 'block';
+            document.getElementById('proceedBtn').disabled = false;
+        });
+        
+        document.getElementById('proceedBtn').addEventListener('click', () => {
+            if (selectedOrder) {
+                localStorage.setItem('selected_order_id', selectedOrder.order_id);
+                localStorage.setItem('selected_product', selectedOrder.product_name);
+                localStorage.setItem('selected_product_id', selectedOrder.product_id);
+                window.location.href = '/chat';
+            }
+        });
+        
+        function resetForm() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('orderSelection').style.display = 'none';
+            document.getElementById('noOrders').style.display = 'none';
+            document.querySelector('.hint').style.display = 'block';
+            document.getElementById('userId').value = '';
+            selectedOrder = null; userOrders = [];
+        }
+    </script>
+</body>
+</html>

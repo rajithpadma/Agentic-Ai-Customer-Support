@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - Customer Support</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🤖 Support</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/chat" class="nav-item active">💬 Chat</a>
+                <a href="/shipments" class="nav-item">📦 Shipments</a>
+                <a href="#" class="nav-item" onclick="endChat()">📋 End Chat</a>
+                <a href="/" class="nav-item" onclick="logout()">🚪 Logout</a>
+            </nav>
+            <div class="sidebar-footer">
+                <p>User: <span id="currentUser">-</span></p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h1>Customer Support Chat</h1>
+                    <p>How can we help you today?</p>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Initial message with image upload requirement -->
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="image-upload">
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <button class="btn-icon" onclick="document.getElementById('imageInput').click()">📷</button>
+                        <span id="imageFileName"></span>
+                    </div>
+                    <form id="chatForm" class="chat-form">
+                        <input type="text" id="messageInput" placeholder="Please upload product image first..." autocomplete="off" disabled>
+                        <button type="submit" class="btn-send">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const userId = localStorage.getItem('user_id');
+        const sessionId = localStorage.getItem('session_id');
+        const selectedOrderId = localStorage.getItem('selected_order_id');
+        const selectedProduct = localStorage.getItem('selected_product');
+        const selectedProductId = localStorage.getItem('selected_product_id');
+        
+        let imageAnalysis = null;
+        let imageUploaded = false;
+        let chatEnabled = false;
+
+        if (!userId || !selectedOrderId) {
+            window.location.href = '/login';
+        }
+
+        document.getElementById('currentUser').textContent = userId;
+        
+        // Show initial greeting with MANDATORY image upload requirement
+        showInitialMessage();
+        
+        function showInitialMessage() {
+            const messagesDiv = document.getElementById('chatMessages');
+            messagesDiv.innerHTML = `
+                <div class="message bot">
+                    <div class="message-content">
+                        <h3 style="color: #667eea; margin-bottom: 10px;">👋 Welcome to Customer Support!</h3>
+                        
+                        <p style="margin-bottom: 15px;">I see you're contacting us about:</p>
+                        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong>Order ID:</strong> ${selectedOrderId}<br>
+                            <strong>Product:</strong> ${selectedProduct || 'N/A'}
+                        </div>
+                        
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 15px;">
+                            <strong style="color: #856404; font-size: 16px;">⚠️ IMPORTANT - Image Upload Required</strong><br><br>
+                            <p style="color: #856404; margin-bottom: 10px;">
+                                Before we can assist you, please upload a clear image of the product showing the issue. This helps us:
+                            </p>
+                            <ul style="color: #856404; margin-left: 20px;">
+                                <li>Accurately assess the problem</li>
+                                <li>Provide faster resolution</li>
+                                <li>Process returns/replacements efficiently</li>
+                            </ul>
+                        </div>
+                        
+                        <p style="margin-bottom: 10px;"><strong>How to upload:</strong></p>
+                        <ol style="margin-left: 20px; margin-bottom: 15px;">
+                            <li>Click the 📷 button below</li>
+                            <li>Select a clear photo of your product</li>
+                            <li>Wait for our AI to analyze the image</li>
+                            <li>Then describe your issue in detail</li>
+                        </ol>
+                        
+                        <p style="color: #666; font-style: italic;">
+                            Once your image is analyzed, I can help you with returns, replacements, refunds, and more!
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Image upload handler - PASSES product info to backend
+        document.getElementById('imageInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('imageFileName').textContent = file.name;
+
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('product_id', selectedProductId || '');
+            formData.append('product_name', selectedProduct || '');
+            formData.append('order_id', selectedOrderId || '');
+
+            try {
+                addMessage('📷 Analyzing your product image using AI... Please wait.', 'bot');
+                
+                const response = await fetch('/api/analyze-image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                imageAnalysis = result;
+                imageUploaded = true;
+                
+                // Enable chat after image upload
+                chatEnabled = true;
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('messageInput').placeholder = 'Type your message...';
+
+                if (result.category) {
+                    let analysisMessage = `✅ <strong>Image Analysis Complete!</strong><br><br>`;
+                    analysisMessage += `<div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin-bottom: 10px;">`;
+                    analysisMessage += `<strong>Issue Detected:</strong> ${result.category.replace(/_/g, ' ').toUpperCase()}<br>`;
+                    analysisMessage += `<strong>Confidence:</strong> ${(result.confidence * 100).toFixed(1)}%<br>`;
+                    if (result.category_detected) {
+                        analysisMessage += `<strong>Product Category:</strong> ${result.category_detected}<br>`;
+                    }
+                    analysisMessage += `</div>`;
+                    analysisMessage += `<p><strong>Recommendation:</strong> ${result.recommendation}</p><br>`;
+                    analysisMessage += `<p style="color: #28a745;"><strong>✓ You can now describe your issue in the chat below.</strong></p>`;
+                    
+                    addMessage(analysisMessage, 'bot');
+                } else {
+                    addMessage(`✅ <strong>Image uploaded successfully!</strong><br><br>Please describe the issue with your product in detail.`, 'bot');
+                }
+            } catch (error) {
+                console.error('Image analysis error:', error);
+                imageUploaded = true;
+                chatEnabled = true;
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('messageInput').placeholder = 'Type your message...';
+                addMessage('✅ Image uploaded. Please describe the issue with your product.', 'bot');
+            }
+        });
+
+        // Chat form handler
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!chatEnabled) {
+                addMessage('⚠️ Please upload a product image first before starting the chat.', 'bot');
+                return;
+            }
+            
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            addMessage(message, 'user');
+            input.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        message: message,
+                        user_id: userId,
+                        session_id: sessionId,
+                        selected_order_id: selectedOrderId,
+                        image_analysis: imageAnalysis
+                    })
+                });
+
+                const data = await response.json();
+                addMessage(data.response, 'bot');
+                
+                // Clear image analysis after first use
+                imageAnalysis = null;
+                document.getElementById('imageFileName').textContent = '';
+            } catch (error) {
+                console.error('Chat error:', error);
+                addMessage('Sorry, there was an error. Please try again.', 'bot');
+            }
+        });
+
+        function addMessage(content, sender) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `<div class="message-content">${formatMessage(content)}</div>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function formatMessage(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>')
+                .replace(/•/g, '&bull;');
+        }
+
+        async function endChat() {
+            if (!confirm('End this chat session? All details will be saved automatically.')) return;
+            
+            addMessage('Saving your conversation and processing your request... Please wait.', 'bot');
+
+            try {
+                const response = await fetch('/api/chat/end', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        user_id: userId, 
+                        session_id: sessionId,
+                        selected_order_id: selectedOrderId
+                    })
+                });
+                const data = await response.json();
+
+                // Show final message with tracking info if applicable
+                let finalMessage = `<strong>✅ ${data.message || 'Thank you for contacting us!'}</strong><br><br>`;
+                
+                if (data.tracking_id) {
+                    finalMessage += `<div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">`;
+                    finalMessage += `<strong style="color: #155724; font-size: 16px;">🚚 Shipment Created!</strong><br><br>`;
+                    finalMessage += `<strong>Type:</strong> ${data.shipment_type === 'pickup' ? 'Return Pickup' : 'Replacement Delivery'}<br>`;
+                    finalMessage += `<strong>Tracking ID:</strong> <span style="font-family: monospace; background: #fff; padding: 4px 8px; border-radius: 4px;">${data.tracking_id}</span><br><br>`;
+                    finalMessage += `<em>You can track your shipment on the Shipments page.</em>`;
+                    finalMessage += `</div><br>`;
+                }
+                
+                finalMessage += `<p><em>All conversation details and reports have been saved. You will be redirected to the Shipments page shortly.</em></p>`;
+                
+                addMessage(finalMessage, 'bot');
+
+                // Redirect after delay
+                setTimeout(() => {
+                    localStorage.removeItem('session_id');
+                    localStorage.removeItem('selected_order_id');
+                    localStorage.removeItem('selected_product');
+                    localStorage.removeItem('selected_product_id');
+                    window.location.href = '/shipments';
+                }, 5000);
+            } catch (error) {
+                console.error('End chat error:', error);
+                addMessage('Error saving conversation. Redirecting...', 'bot');
+                setTimeout(() => { window.location.href = '/login'; }, 2000);
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            fetch('/api/auth/logout', { method: 'POST' });
+        }
+    </script>
+</body>
+</html>
