@@ -1,0 +1,14 @@
+﻿Category,Risk_Level,Price_Min,Price_Max,Price_Mean,Price_Median,Return_Days_min,Return_Days_max,Return_Days_mean,Replacement_Days_min,Replacement_Days_max,Replacement_Days_mean,Warranty_Months_min,Warranty_Months_max,Warranty_Months_mean,Return_Eligible_sum,Replacement_Eligible_sum,Total_Products
+Beauty & Personal Care,HIGH_HYGIENE,974,3404,2254.5,2320,0,7,3.5,0,14,7,0,12,6,2,2,4
+Books/Educational,STANDARD,1175,2947,2093.75,2126.5,7,7,7,0,3,0.8,0,0,0,4,1,4
+Computing/Peripherals,STANDARD,5893,11127,8770.67,9292,7,7,7,14,14,14,12,36,20,3,3,3
+Fashion & Apparel,STANDARD,689,7601,4037.4,3505,15,30,21,15,30,21,0,12,4.8,5,5,5
+Health & Wellness,HIGH_HYGIENE,3412,7841,4959,3624,0,7,4.7,0,14,9.3,0,12,4,2,2,3
+Home & Kitchen Appliances,APPLIANCE,8396,30693,20106.5,20668.5,10,10,10,30,30,30,12,24,18,4,4,4
+"Home, Furniture & Décor",STANDARD,2267,18912,8205.6,4556,7,7,7,14,14,14,0,12,4.8,5,5,5
+Miscellaneous/Accessories,STANDARD,16787,18159,17473,17473,7,7,7,14,14,14,6,12,9,2,2,2
+Mobiles/Smartphones,HIGH_VALUE,15860,69886,38000,30795,7,7,7,15,15,15,12,12,12,5,5,5
+TVs/Home Entertainment,HIGH_VALUE,4890,15502,10076.67,9838,7,7,7,15,15,15,12,24,16,3,3,3
+Tablets & Laptops,HIGH_VALUE,1769,6311,3837.67,3433,7,7,7,15,15,15,12,12,12,3,3,3
+"Toys, Games & Baby Products",HIGH_SAFETY,9433,11555,10868.5,11243,0,3,2.2,0,7,5.2,0,0,0,3,3,4
+Wearables/Audio,STANDARD,2685,17023,11363.2,12363,7,7,7,14,14,14,6,12,9.6,5,5,5

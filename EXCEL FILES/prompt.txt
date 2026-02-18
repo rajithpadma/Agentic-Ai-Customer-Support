@@ -1,0 +1,4 @@
+in the above code , some of the functionalities are not correctly working , they are listed below , please work upon all of them and resolve them :
+1. Remove the create summary , export chat option from the ui , make it automated as when clicked end chat , perform all operations as chat summary and excel file generation with summary record 
+2. The shipment api is not working properly , while there is a solution which is as replacemnt , scheddule delivery and create id and enable its tracking in shipping website , this process is key and should work accordinlgly 
+3. give a prior messege to user on ui that he needs to upload the images prior the chat and engage the same h5 model based on the order id , product id , name 
